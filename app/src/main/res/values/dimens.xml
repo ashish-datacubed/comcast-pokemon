@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <dimen name="radius_14dp">14dp</dimen>
+
+    <dimen name="std_edge_spacing">24dp</dimen>
+    <dimen name="std_spacing_medium">16dp</dimen>
+
+    <dimen name="std_spacing_small">8dp</dimen>
+
+    <dimen name="std_icon_size">24dp</dimen>
+
+    <dimen name="std_icon_size_large">100dp</dimen>
+
+
+    <dimen name="text_size_heading">40sp</dimen>
+    <dimen name="text_size_large">32sp</dimen>
+    <dimen name="text_size_medium">24sp</dimen>
+    <dimen name="text_size_small">16sp</dimen>
+</resources>

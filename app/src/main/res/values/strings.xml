@@ -1,0 +1,12 @@
+<resources>
+    <string name="app_name">ComcastPokemon</string>
+    <string name="pokemon_list_load_more">Load More</string>
+    <string name="label_types">Types:</string>
+    <string name="label_speed">Speed:</string>
+    <string name="label_attack">Attack:</string>
+    <string name="label_defense">Defense:</string>
+    <string name="generic_error_message">Could not load more data. Please try again later.</string>
+    <string name="no_more_results_message">No more results</string>
+    <string name="no_internet_error_message">Your device may not be connected to the internet. Try again later.</string>
+
+</resources>

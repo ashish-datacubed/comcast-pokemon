@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <style name="AppFont">
+        <item name="android:fontFamily">@font/helvetica_neue_lt_pro_md</item>
+        <item name="android:textColor">@color/black</item>
+    </style>
+
+</resources>
