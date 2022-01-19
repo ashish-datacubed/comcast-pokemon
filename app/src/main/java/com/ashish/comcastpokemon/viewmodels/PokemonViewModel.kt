@@ -12,7 +12,9 @@ import com.ashish.comcastpokemon.R
 import com.ashish.comcastpokemon.Resource
 import com.ashish.comcastpokemon.SingleLiveEvent
 import com.ashish.comcastpokemon.application.PokemonApplication
+import com.ashish.comcastpokemon.models.PokemonDetailsItem
 import com.ashish.comcastpokemon.models.PokemonFilteredDetails
+import com.ashish.comcastpokemon.models.PokemonSearchData
 import com.ashish.comcastpokemon.network.NetworkUtil
 import com.ashish.comcastpokemon.network.POKEMON_BASE_URL
 import com.ashish.comcastpokemon.ui.COMMON_TAG
@@ -38,35 +40,20 @@ class PokemonViewModel(app: Application) : AndroidViewModel(app) {
         pokemonListResultEvent.postValue(Resource.loading())
         viewModelScope.launch {
             withContext(Dispatchers.IO) {
-                var url = ""
-                if (loadMoreURL.value == null) {
-                    url = "pokemon"
-                } else {
+                val url = if(loadMoreURL.value == null) "pokemon" else {
                     val tempURL = loadMoreURL.value
-                    url = tempURL?.substring(POKEMON_BASE_URL.length) ?: "pokemon"
+                    tempURL?.substring(POKEMON_BASE_URL.length) ?: "pokemon"
                 }
                 //get next list of Pokemon
                 if (hasInternetConnection()) {
                     val response = NetworkUtil.getPokemonList(url)
-
                     if (response.isSuccessful) {
-                        Log.d(COMMON_TAG, "RESPONSE WAS SUCCESSFUL")
                         response.body()?.let {
-                            Log.d(COMMON_TAG, "NEXT: ${it.next}")
                             withContext(Dispatchers.Main) {
                                 _loadMoreURL.value = it.next ?: NO_MORE_RESULTS
-                                it.results.forEach { pokemonItem ->
-                                    val id = extractID(pokemonItem.detailsURL)
-                                    val item = PokemonFilteredDetails(
-                                        name = pokemonItem.name,
-                                        id = id,
-                                        detailsURL = pokemonItem.detailsURL
-                                    )
-                                    pokemonFullList.add(item)
-                                }
+                                updatePokemonLoadResults(it)
                                 pokemonListResultEvent.value =
                                     Resource.success(it.results.size, response.code())
-                                //_pokemonListResult.value = Resource.success(it, response.code())
                             }
                         }
                     } else {
@@ -100,36 +87,7 @@ class PokemonViewModel(app: Application) : AndroidViewModel(app) {
                     if (response.isSuccessful) {
                         response.body()?.let { pokemonDetailsItem ->
                             withContext(Dispatchers.Main) {
-                                val index =
-                                    pokemonFullList.indexOfFirst { it.id == pokemonDetailsItem.id }
-                                if (index != -1) {
-                                    pokemonFullList[index].apply {
-                                        //pokemon icon url
-                                        iconURL = pokemonDetailsItem.sprites.back_default
-
-                                        //pokemon types list
-                                        val typesList = ArrayList<String>()
-                                        pokemonDetailsItem.types.forEach { type ->
-                                            typesList.add(type.type.name)
-                                        }
-                                        types = typesList
-
-                                        val stats = pokemonDetailsItem.stats
-                                        //pokemon attack
-                                        val attack = stats.firstOrNull { it.stat.name == "attack" }
-                                        val attackValue = attack?.base_stat
-                                        //pokemon speed
-                                        val speed = stats.firstOrNull { it.stat.name == "speed" }
-                                        val speedValue = speed?.base_stat
-                                        //pokemon defense
-                                        val defense = stats.firstOrNull { it.stat.name == "attack" }
-                                        val defenseValue = defense?.base_stat
-
-                                        this.speed = speedValue
-                                        this.attack = attackValue
-                                        this.defense = defenseValue
-                                    }
-                                }
+                                updatePokemonDetails(pokemonDetailsItem)
                                 pokemonDetailsResultEvent.value =
                                     Resource.success(id, response.code())
                             }
@@ -178,5 +136,50 @@ class PokemonViewModel(app: Application) : AndroidViewModel(app) {
         if (detailsURL == null) return "-1"
         val sub = detailsURL.substring(0, detailsURL.length - 1)
         return sub.substring(sub.lastIndexOf("/") + 1)
+    }
+
+    private fun updatePokemonLoadResults(searchData: PokemonSearchData) {
+        searchData.results.forEach { pokemonItem ->
+            val id = extractID(pokemonItem.detailsURL)
+            val item = PokemonFilteredDetails(
+                name = pokemonItem.name,
+                id = id,
+                detailsURL = pokemonItem.detailsURL
+            )
+            pokemonFullList.add(item)
+        }
+    }
+
+    private fun updatePokemonDetails(pokemonDetailsItem: PokemonDetailsItem) {
+        val index =
+            pokemonFullList.indexOfFirst { it.id == pokemonDetailsItem.id }
+        if (index != -1) {
+            pokemonFullList[index].apply {
+                //pokemon icon url
+                iconURL = pokemonDetailsItem.sprites.back_default
+
+                //pokemon types list
+                val typesList = ArrayList<String>()
+                pokemonDetailsItem.types.forEach { type ->
+                    typesList.add(type.type.name)
+                }
+                types = typesList
+
+                val stats = pokemonDetailsItem.stats
+                //pokemon attack
+                val attack = stats.firstOrNull { it.stat.name == "attack" }
+                val attackValue = attack?.base_stat
+                //pokemon speed
+                val speed = stats.firstOrNull { it.stat.name == "speed" }
+                val speedValue = speed?.base_stat
+                //pokemon defense
+                val defense = stats.firstOrNull { it.stat.name == "attack" }
+                val defenseValue = defense?.base_stat
+
+                this.speed = speedValue
+                this.attack = attackValue
+                this.defense = defenseValue
+            }
+        }
     }
 }
