@@ -32,7 +32,6 @@ class PokemonListFragment : Fragment(R.layout.fragment_pokemon_list),
     private var _binding: FragmentPokemonListBinding? = null
     private val binding get() = _binding!!
     private lateinit var viewModel: PokemonViewModel
-    private var pokemonList = mutableListOf<PokemonFilteredDetails>()
     private lateinit var adapter: RecyclerView.Adapter<BaseViewHolder>
     private var fragmentActionListener: FragmentActionListener? = null
     private lateinit var layoutManager: LinearLayoutManager
@@ -47,7 +46,8 @@ class PokemonListFragment : Fragment(R.layout.fragment_pokemon_list),
         initRecyclerView()
         initObservers()
         initSwipeRefreshLayout()
-        getPokemonList()
+        if (viewModel.pokemonFullList.isEmpty())
+            getPokemonList()
     }
 
     override fun onDestroy() {
@@ -62,7 +62,6 @@ class PokemonListFragment : Fragment(R.layout.fragment_pokemon_list),
         viewModel.getPokemonList()
     }
 
-    //region private
     private fun initViewModel() {
         viewModel =
             ViewModelProvider(requireActivity(), AppViewModelFactory(requireActivity().application))
@@ -76,7 +75,7 @@ class PokemonListFragment : Fragment(R.layout.fragment_pokemon_list),
     }
 
     private fun initRecyclerView() {
-        adapter = PokemonSearchResultsAdapter(pokemonList, ::onItemClicked)
+        adapter = PokemonSearchResultsAdapter(viewModel.pokemonFullList, ::onItemClicked)
         binding.recyclerviewPokemonList.adapter = adapter
         binding.recyclerviewPokemonList.layoutManager = layoutManager
 
@@ -101,9 +100,9 @@ class PokemonListFragment : Fragment(R.layout.fragment_pokemon_list),
         //get pokemon details for visible items
         if (firstVisibleItem >= 0 && lastVisibleItem >= 0) {
             for (index in firstVisibleItem..lastVisibleItem) {
-                if (!pokemonList[index].detailsCallMade) {
-                    pokemonList[index].detailsCallMade = true
-                    val id = pokemonList[index].id
+                if (!viewModel.pokemonFullList[index].detailsCallMade) {
+                    viewModel.pokemonFullList[index].detailsCallMade = true
+                    val id = viewModel.pokemonFullList[index].id
                     viewModel.getPokemonDetails(id)
                 }
             }
@@ -111,29 +110,22 @@ class PokemonListFragment : Fragment(R.layout.fragment_pokemon_list),
     }
 
     private fun initObservers() {
-        viewModel.pokemonListResult.observe(viewLifecycleOwner) {
+        viewModel.pokemonListResultEvent.observe(viewLifecycleOwner) {
             when (it.status) {
                 Status.LOADING -> {
                     binding.frameLayout.visibility = VISIBLE
                     binding.btnLoadMore.isEnabled = false
                 }
                 Status.SUCCESS -> {
-                    val list = viewModel.pokemonListResult.value?.data
-                    val oldListSize = pokemonList.size
-                    list?.results?.let { resultsList ->
-                        resultsList.forEach { pokemonItem ->
-                            val id = extractID(pokemonItem.detailsURL)
-                            val item = PokemonFilteredDetails(
-                                name = pokemonItem.name,
-                                id = id,
-                                detailsURL = pokemonItem.detailsURL
-                            )
-                            pokemonList.add(item)
-                        }
-                        adapter.notifyItemRangeChanged(oldListSize, resultsList.size)
-                        binding.frameLayout.visibility = GONE
-                        binding.btnLoadMore.isEnabled = true
-                    }
+                    Log.d(COMMON_TAG, "SUCCESS OBSERVER")
+                    val newElementsCount: Int = it.data!!
+                    val totalElementsCount = viewModel.pokemonFullList.size
+                    adapter.notifyItemRangeChanged(
+                        totalElementsCount - newElementsCount,
+                        newElementsCount
+                    )
+                    binding.frameLayout.visibility = GONE
+                    binding.btnLoadMore.isEnabled = true
                 }
                 Status.ERROR -> {
                     binding.frameLayout.visibility = GONE
@@ -141,52 +133,21 @@ class PokemonListFragment : Fragment(R.layout.fragment_pokemon_list),
                     Toast.makeText(requireActivity(), it.message, Toast.LENGTH_LONG).show()
                 }
                 Status.EMPTY -> {
-                    val listSize = pokemonList.size
-                    pokemonList.clear()
-                    adapter.notifyItemRangeChanged(0, pokemonList.size)
+                    val numElements = viewModel.pokemonFullList.size
+                    adapter.notifyItemRangeChanged(0, numElements)
                 }
             }
         }
 
-        viewModel.pokemonDetailsResult.observe(viewLifecycleOwner) {
-            when (it.status) {
+        viewModel.pokemonDetailsResultEvent.observe(viewLifecycleOwner) { result ->
+            when (result.status) {
                 Status.LOADING -> {
 
                 }
                 Status.SUCCESS -> {
-                    val detailsItem = viewModel.pokemonDetailsResult.value?.data
-                    detailsItem?.let {
-                        val index = pokemonList.indexOfFirst { it.id == detailsItem.id }
-                        if (index != -1) {
-                            pokemonList[index].apply {
-                                //pokemon icon url
-                                iconURL = detailsItem.sprites.back_default
-
-                                //pokemon types list
-                                val typesList = ArrayList<String>()
-                                detailsItem.types.forEach { type ->
-                                    typesList.add(type.type.name)
-                                }
-                                types = typesList
-
-                                val stats = detailsItem.stats
-                                //pokemon attack
-                                val attack = stats.firstOrNull { it.stat.name == "attack" }
-                                val attackValue = attack?.base_stat
-                                //pokemon speed
-                                val speed = stats.firstOrNull { it.stat.name == "speed" }
-                                val speedValue = speed?.base_stat
-                                //pokemon defense
-                                val defense = stats.firstOrNull { it.stat.name == "attack" }
-                                val defenseValue = defense?.base_stat
-
-                                this.speed = speedValue
-                                this.attack = attackValue
-                                this.defense = defenseValue
-                            }
-                            adapter.notifyItemChanged(index)
-                        }
-                    }
+                    val id: String = result.data!!
+                    val index = viewModel.pokemonFullList.indexOfFirst { it.id == id }
+                    if (index != -1) adapter.notifyItemChanged(index)
                 }
                 Status.ERROR -> {
 
@@ -204,12 +165,6 @@ class PokemonListFragment : Fragment(R.layout.fragment_pokemon_list),
                     .show()
             }
         }
-    }
-
-    private fun extractID(detailsURL: String?): String {
-        if (detailsURL == null) return "-1"
-        val sub = detailsURL.substring(0, detailsURL.length - 1)
-        return sub.substring(sub.lastIndexOf("/") + 1)
     }
 
     private fun onItemClicked(pokemonDetails: PokemonFilteredDetails) {

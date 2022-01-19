@@ -10,10 +10,9 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
 import com.ashish.comcastpokemon.R
 import com.ashish.comcastpokemon.Resource
+import com.ashish.comcastpokemon.SingleLiveEvent
 import com.ashish.comcastpokemon.application.PokemonApplication
-import com.ashish.comcastpokemon.models.PokemonDetailsItem
 import com.ashish.comcastpokemon.models.PokemonFilteredDetails
-import com.ashish.comcastpokemon.models.PokemonSearchData
 import com.ashish.comcastpokemon.network.NetworkUtil
 import com.ashish.comcastpokemon.network.POKEMON_BASE_URL
 import com.ashish.comcastpokemon.ui.COMMON_TAG
@@ -24,19 +23,19 @@ import kotlinx.coroutines.withContext
 
 class PokemonViewModel(app: Application) : AndroidViewModel(app) {
 
-    private var _pokemonListResult = MutableLiveData<Resource<PokemonSearchData>>()
-    val pokemonListResult get() = _pokemonListResult
-    private var _pokemonDetailsResult = MutableLiveData<Resource<PokemonDetailsItem>>()
-    val pokemonDetailsResult get() = _pokemonDetailsResult
-
+    val pokemonListResultEvent = SingleLiveEvent<Resource<Int>>()
+    val pokemonDetailsResultEvent = SingleLiveEvent<Resource<String>>()
     private var _loadMoreURL = MutableLiveData<String?>(null)
     val loadMoreURL get() = _loadMoreURL
 
     var currentSelection = MutableLiveData<PokemonFilteredDetails?>()
 
+    var pokemonFullList: MutableList<PokemonFilteredDetails> = mutableListOf()
+
     //Get list of Pokemon
     fun getPokemonList() {
-        _pokemonListResult.postValue(Resource.loading())
+        //_pokemonListResult.postValue(Resource.loading())
+        pokemonListResultEvent.postValue(Resource.loading())
         viewModelScope.launch {
             withContext(Dispatchers.IO) {
                 var url = ""
@@ -49,22 +48,29 @@ class PokemonViewModel(app: Application) : AndroidViewModel(app) {
                 //get next list of Pokemon
                 if (hasInternetConnection()) {
                     val response = NetworkUtil.getPokemonList(url)
+
                     if (response.isSuccessful) {
                         Log.d(COMMON_TAG, "RESPONSE WAS SUCCESSFUL")
                         response.body()?.let {
                             Log.d(COMMON_TAG, "NEXT: ${it.next}")
                             withContext(Dispatchers.Main) {
-                                if (it.next == null) {
-                                    _loadMoreURL.value = NO_MORE_RESULTS
-                                } else {
-                                    _loadMoreURL.value = it.next
+                                _loadMoreURL.value = it.next ?: NO_MORE_RESULTS
+                                it.results.forEach { pokemonItem ->
+                                    val id = extractID(pokemonItem.detailsURL)
+                                    val item = PokemonFilteredDetails(
+                                        name = pokemonItem.name,
+                                        id = id,
+                                        detailsURL = pokemonItem.detailsURL
+                                    )
+                                    pokemonFullList.add(item)
                                 }
-                                _pokemonListResult.value = Resource.success(it, response.code())
+                                pokemonListResultEvent.value =
+                                    Resource.success(it.results.size, response.code())
+                                //_pokemonListResult.value = Resource.success(it, response.code())
                             }
-
                         }
                     } else {
-                        _pokemonListResult.postValue(
+                        pokemonListResultEvent.postValue(
                             Resource.error(
                                 getApplication<PokemonApplication>().resources.getString(R.string.generic_error_message),
                                 response.code()
@@ -74,7 +80,7 @@ class PokemonViewModel(app: Application) : AndroidViewModel(app) {
                 }
                 // No network
                 else {
-                    _pokemonListResult.postValue(
+                    pokemonListResultEvent.postValue(
                         Resource.error(
                             getApplication<PokemonApplication>().resources.getString(R.string.no_internet_error_message),
                             null
@@ -94,12 +100,42 @@ class PokemonViewModel(app: Application) : AndroidViewModel(app) {
                     if (response.isSuccessful) {
                         response.body()?.let { pokemonDetailsItem ->
                             withContext(Dispatchers.Main) {
-                                _pokemonDetailsResult.value =
-                                    Resource.success(pokemonDetailsItem, response.code())
+                                val index =
+                                    pokemonFullList.indexOfFirst { it.id == pokemonDetailsItem.id }
+                                if (index != -1) {
+                                    pokemonFullList[index].apply {
+                                        //pokemon icon url
+                                        iconURL = pokemonDetailsItem.sprites.back_default
+
+                                        //pokemon types list
+                                        val typesList = ArrayList<String>()
+                                        pokemonDetailsItem.types.forEach { type ->
+                                            typesList.add(type.type.name)
+                                        }
+                                        types = typesList
+
+                                        val stats = pokemonDetailsItem.stats
+                                        //pokemon attack
+                                        val attack = stats.firstOrNull { it.stat.name == "attack" }
+                                        val attackValue = attack?.base_stat
+                                        //pokemon speed
+                                        val speed = stats.firstOrNull { it.stat.name == "speed" }
+                                        val speedValue = speed?.base_stat
+                                        //pokemon defense
+                                        val defense = stats.firstOrNull { it.stat.name == "attack" }
+                                        val defenseValue = defense?.base_stat
+
+                                        this.speed = speedValue
+                                        this.attack = attackValue
+                                        this.defense = defenseValue
+                                    }
+                                }
+                                pokemonDetailsResultEvent.value =
+                                    Resource.success(id, response.code())
                             }
                         }
                     } else {
-                        _pokemonDetailsResult.postValue(
+                        pokemonDetailsResultEvent.postValue(
                             Resource.error(
                                 getApplication<PokemonApplication>().resources.getString(R.string.generic_error_message),
                                 response.code()
@@ -107,7 +143,7 @@ class PokemonViewModel(app: Application) : AndroidViewModel(app) {
                         )
                     }
                 } else {
-                    _pokemonDetailsResult.postValue(
+                    pokemonDetailsResultEvent.postValue(
                         Resource.error(
                             getApplication<PokemonApplication>().resources.getString(R.string.no_internet_error_message),
                             null
@@ -121,8 +157,7 @@ class PokemonViewModel(app: Application) : AndroidViewModel(app) {
     fun clearData() {
         currentSelection.value = null
         _loadMoreURL.value = null
-        _pokemonListResult.value = Resource.empty()
-        _pokemonDetailsResult.value = Resource.empty()
+        pokemonFullList.clear()
     }
 
     private fun hasInternetConnection(): Boolean {
@@ -137,5 +172,11 @@ class PokemonViewModel(app: Application) : AndroidViewModel(app) {
             capabilities.hasTransport(TRANSPORT_ETHERNET) -> true
             else -> false
         }
+    }
+
+    private fun extractID(detailsURL: String?): String {
+        if (detailsURL == null) return "-1"
+        val sub = detailsURL.substring(0, detailsURL.length - 1)
+        return sub.substring(sub.lastIndexOf("/") + 1)
     }
 }
