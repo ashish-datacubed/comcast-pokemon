@@ -8,19 +8,20 @@ import retrofit2.converter.gson.GsonConverterFactory
 
 const val POKEMON_BASE_URL = "https://pokeapi.co/api/v2/"
 object NetworkUtil {
+    private var instance: Retrofit? = null
 
-    private fun getRetrofitInstance(baseURL: String): Retrofit {
-        return Retrofit.Builder()
-            .baseUrl(baseURL)
-            .addConverterFactory(GsonConverterFactory.create())
-            .build()
+    private fun getRetrofitInstance(): Retrofit {
+        return instance ?: Retrofit.Builder()
+                .baseUrl(POKEMON_BASE_URL)
+                .addConverterFactory(GsonConverterFactory.create())
+                .build()
     }
 
     suspend fun getPokemonList(url: String): Response<PokemonSearchData> {
-        return getRetrofitInstance(POKEMON_BASE_URL).create(PokemonApi::class.java).getPokemonList(url)
+        return getRetrofitInstance().create(PokemonApi::class.java).getPokemonList(url)
     }
 
     suspend fun getPokemonDetails(id: String): Response<PokemonDetailsItem> {
-        return getRetrofitInstance(POKEMON_BASE_URL).create(PokemonApi::class.java).getPokemonDetails(id)
+        return getRetrofitInstance().create(PokemonApi::class.java).getPokemonDetails(id)
     }
 }
