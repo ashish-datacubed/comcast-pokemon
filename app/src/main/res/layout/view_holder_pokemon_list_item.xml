@@ -33,7 +33,7 @@
         android:id="@+id/text_view_types"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:visibility="visible"
+        android:visibility="gone"
         android:layout_marginStart="@dimen/std_spacing_small"
         style="@style/AppFont"
         android:textSize="@dimen/text_size_small"
@@ -52,5 +52,18 @@
         app:layout_constraintStart_toEndOf="@+id/img_pokemon_image"
         app:layout_constraintTop_toTopOf="@+id/img_pokemon_image"
         tools:text="Pokemon name" />
+
+    <ProgressBar
+        android:id="@+id/progress_bar"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:layout_constraintTop_toBottomOf="@+id/img_pokemon_image"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="@dimen/std_spacing_medium"
+        android:visibility="invisible"
+        android:indeterminate="true"
+        android:indeterminateTint="@color/colorGray"
+        style="?android:attr/progressBarStyleHorizontal" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

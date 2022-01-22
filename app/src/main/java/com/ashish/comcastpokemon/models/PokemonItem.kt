@@ -37,7 +37,8 @@ data class PokemonFilteredDetails(
     var abilities: List<String>? = null,
     var speed: Int? = null,
     var attack: Int? = null,
-    var defense: Int? = null
+    var defense: Int? = null,
+    var isDetailsLoading: Boolean = false
 )
 
 data class PokemonStat(

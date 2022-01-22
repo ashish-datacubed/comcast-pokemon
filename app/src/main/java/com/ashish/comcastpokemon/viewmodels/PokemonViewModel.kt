@@ -36,7 +36,6 @@ class PokemonViewModel(app: Application) : AndroidViewModel(app) {
 
     //Get list of Pokemon
     fun getPokemonList() {
-        //_pokemonListResult.postValue(Resource.loading())
         pokemonListResultEvent.postValue(Resource.loading())
         viewModelScope.launch {
             withContext(Dispatchers.IO) {
@@ -81,6 +80,7 @@ class PokemonViewModel(app: Application) : AndroidViewModel(app) {
     //Get additional details for a Pokemon
     fun getPokemonDetails(id: String) {
         viewModelScope.launch {
+            pokemonDetailsResultEvent.value = Resource.loading(id)
             withContext(Dispatchers.IO) {
                 if (hasInternetConnection()) {
                     val response = NetworkUtil.getPokemonDetails(id)

@@ -142,12 +142,20 @@ class PokemonListFragment : Fragment(R.layout.fragment_pokemon_list),
         viewModel.pokemonDetailsResultEvent.observe(viewLifecycleOwner) { result ->
             when (result.status) {
                 Status.LOADING -> {
-
+                    val id: String = result.data!!
+                    val index = viewModel.pokemonFullList.indexOfFirst { it.id == id }
+                    if (index != -1) {
+                        viewModel.pokemonFullList[index].isDetailsLoading = true
+                        adapter.notifyItemChanged(index)
+                    }
                 }
                 Status.SUCCESS -> {
                     val id: String = result.data!!
                     val index = viewModel.pokemonFullList.indexOfFirst { it.id == id }
-                    if (index != -1) adapter.notifyItemChanged(index)
+                    if (index != -1) {
+                        viewModel.pokemonFullList[index].isDetailsLoading = false
+                        adapter.notifyItemChanged(index)
+                    }
                 }
                 Status.ERROR -> {
 
